@@ -3,7 +3,6 @@ import os
 import json
 import re
 import pandas as pd
-from huggingface_hub import InferenceClient
 from dotenv import load_dotenv
 
 load_dotenv()
