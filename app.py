@@ -20,6 +20,10 @@ if not HUGGINGFACE_API_KEY:
 # Sidebar
 with st.sidebar:
     st.header("⚙️ Settings")
+    model = st.selectbox("Model", [
+        
+        "huggingface/meta-llama/Llama-3.2-3B-Instruct"
+    ], index=0)
     num_cards = st.slider("Number of cards", 4, 200, 20)
     style = st.selectbox("Style", ["Mixed", "Vocabulary", "Cloze", "Q&A", "Sentence"], index=0)
 
@@ -42,6 +46,7 @@ Text:
 {text}"""
 
             response = completion(
+                model=model,
                 messages=[{"role": "user", "content": prompt}],
                 api_key=HUGGINGFACE_API_KEY,
                 temperature=0.7,
