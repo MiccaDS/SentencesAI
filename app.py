@@ -3,9 +3,7 @@ import os
 import json
 import re
 import pandas as pd
-from dotenv import load_dotenv
 
-load_dotenv()
 
 st.set_page_config(page_title="SentencesAI", page_icon="🃏", layout="wide")
 
