@@ -8,52 +8,56 @@ import pandas as pd
 st.set_page_config(page_title="SentencesAI", page_icon="🃏", layout="wide")
 
 st.title("🃏 SentencesAI")
-st.caption("Create Anki/Quizlet flashcards from any text using free Hugging Face AI")
+st.caption("Create Anki & Quizlet flashcards from any text")
 
-# ====================== TOKEN LOADING ======================
+# Load API key
 HUGGINGFACE_API_KEY = os.getenv("HUGGINGFACE_API") or os.getenv("HUGGINGFACE_TOKEN") or os.getenv("HF_TOKEN")
 
 if not HUGGINGFACE_API_KEY:
-    st.error("❌ No Hugging Face API key found!")
-    st.info("""Please add this line to your `.env` file:
-
-HUGGINGFACE_API=hf_your_actual_token_here""")
+    st.error("❌ Hugging Face API key not found!")
+    st.info("Add `HUGGINGFACE_API=your_key_here` to your `.env` file (local) or `secrets.toml` (on Streamlit Cloud)")
     st.stop()
 
-# ====================== SIDEBAR ======================
+# Sidebar settings
 with st.sidebar:
-    st.header("Settings")
-    model = st.selectbox("Model", [
-        "huggingface/Qwen/Qwen2.5-7B-Instruct",
-        "huggingface/meta-llama/Llama-3.2-3B-Instruct"
-    ], index=0)
-    
-    num_cards = st.slider("Number of cards", 4, 20, 8)
-    style = st.selectbox("Style", ["Mixed", "Vocabulary", "Cloze", "Q&A", "Sentence"], index=0)
+    st.header("⚙️ Settings")
+    model = st.selectbox(
+        "Choose Model",
+        [
+            "huggingface/Qwen/Qwen2.5-7B-Instruct",
+            "huggingface/meta-llama/Llama-3.2-3B-Instruct"
+        ],
+        index=0
+    )
+    num_cards = st.slider("Number of flashcards", min_value=4, max_value=20, value=8)
+    style = st.selectbox("Flashcard Style", ["Mixed", "Vocabulary", "Cloze", "Q&A", "Sentence"], index=0)
 
-# ====================== MAIN AREA ======================
-text = st.text_area("Paste your text or topic here", height=220, 
-                    placeholder="Paste any paragraph, notes, article, or topic...")
+# Main input
+text = st.text_area(
+    "Paste your text here",
+    height=250,
+    placeholder="Paste any text, paragraph, article, lecture notes, or even just a topic..."
+)
 
-if st.button("Generate Flashcards", type="primary", use_container_width=True):
+if st.button("🚀 Generate Flashcards", type="primary", use_container_width=True):
     if not text.strip():
-        st.warning("Please enter some text")
+        st.warning("Please paste some text first!")
         st.stop()
 
-    with st.spinner("Generating flashcards... (this may take 15-40 seconds)"):
+    with st.spinner("Generating flashcards... This can take 15–40 seconds"):
         try:
-            prompt = f"""Create exactly {num_cards} high-quality flashcards from the text below.
+            prompt = f"""Create exactly {num_cards} high-quality flashcards based on the following text.
 
 Style: {style}
 
-Return ONLY a valid JSON array. No extra text, no markdown, no explanation.
+Return **only** a valid JSON array. No extra text, no explanation, no markdown.
 
-Each card must have these exact keys:
-- "front": question or prompt
-- "back": answer or explanation  
+Each flashcard must be a JSON object with these exact keys:
+- "front": the question or prompt (clear and concise)
+- "back": the answer or explanation
 - "type": one of "Vocabulary", "Cloze", "Q&A", "Sentence", "Definition"
 
-Text:
+Text to create flashcards from:
 {text}"""
 
             response = completion(
@@ -61,43 +65,45 @@ Text:
                 messages=[{"role": "user", "content": prompt}],
                 api_key=HUGGINGFACE_API_KEY,
                 temperature=0.7,
-                max_tokens=2500
+                max_tokens=3000
             )
 
             content = response.choices[0].message.content.strip()
 
-            # Extract JSON if the model adds extra text
-            match = re.search(r'\[.*\]', content, re.DOTALL)
+            # Extract JSON array
+            match = re.search(r'\[.*\]', content, re.DOTALL | re.IGNORECASE)
             json_text = match.group(0) if match else content
 
             flashcards = json.loads(json_text)
 
-            st.session_state['flashcards'] = flashcards
-            st.success(f"✅ Created {len(flashcards)} flashcards!")
+            # Save to session state
+            st.session_state.flashcards = flashcards
+
+            st.success(f"✅ Successfully created {len(flashcards)} flashcards!")
 
         except Exception as e:
-            st.error(f"❌ Error: {str(e)}")
+            st.error(f"Generation failed: {str(e)}")
             st.info("Tip: Try shorter text or switch to the other model.")
 
-# ====================== DISPLAY RESULTS ======================
-if 'flashcards' in st.session_state:
-    df = pd.DataFrame(st.session_state['flashcards'])
-    
-    st.subheader("📇 Your Flashcards")
+# Show flashcards if generated
+if "flashcards" in st.session_state:
+    df = pd.DataFrame(st.session_state.flashcards)
+
+    st.subheader("📇 Generated Flashcards")
     st.data_editor(df, use_container_width=True, num_rows="dynamic")
 
     col1, col2 = st.columns(2)
     with col1:
         st.download_button(
-            label="📥 Download CSV for Anki/Quizlet",
+            label="📥 Download as CSV (for Anki/Quizlet)",
             data=df.to_csv(index=False),
-            file_name="sentencesai_deck.csv",
+            file_name="flashcards.csv",
             mime="text/csv"
         )
     with col2:
         st.download_button(
-            label="📥 Download JSON",
-            data=json.dumps(st.session_state['flashcards'], indent=2),
-            file_name="sentencesai_deck.json",
+            label="📥 Download as JSON",
+            data=json.dumps(st.session_state.flashcards, indent=2),
+            file_name="flashcards.json",
             mime="application/json"
         )
