@@ -20,10 +20,6 @@ if not HUGGINGFACE_API_KEY:
 # Sidebar
 with st.sidebar:
     st.header("⚙️ Settings")
-    model = st.selectbox("Model", [
-        "huggingface/Qwen/Qwen2.5-7B-Instruct",
-        "huggingface/meta-llama/Llama-3.2-3B-Instruct"
-    ], index=0)
     num_cards = st.slider("Number of cards", 4, 20, 8)
     style = st.selectbox("Style", ["Mixed", "Vocabulary", "Cloze", "Q&A", "Sentence"], index=0)
 
