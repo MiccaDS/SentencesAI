@@ -8,56 +8,44 @@ import pandas as pd
 st.set_page_config(page_title="SentencesAI", page_icon="🃏", layout="wide")
 
 st.title("🃏 SentencesAI")
-st.caption("Create Anki & Quizlet flashcards from any text")
+st.caption("Create Anki & Quizlet-style flashcards from any text")
 
 # Load API key
 HUGGINGFACE_API_KEY = os.getenv("HUGGINGFACE_API") or os.getenv("HUGGINGFACE_TOKEN") or os.getenv("HF_TOKEN")
 
 if not HUGGINGFACE_API_KEY:
     st.error("❌ Hugging Face API key not found!")
-    st.info("Add `HUGGINGFACE_API=your_key_here` to your `.env` file (local) or `secrets.toml` (on Streamlit Cloud)")
     st.stop()
 
-# Sidebar settings
+# Sidebar
 with st.sidebar:
     st.header("⚙️ Settings")
-    model = st.selectbox(
-        "Choose Model",
-        [
-            "huggingface/Qwen/Qwen2.5-7B-Instruct",
-            "huggingface/meta-llama/Llama-3.2-3B-Instruct"
-        ],
-        index=0
-    )
-    num_cards = st.slider("Number of flashcards", min_value=4, max_value=20, value=8)
-    style = st.selectbox("Flashcard Style", ["Mixed", "Vocabulary", "Cloze", "Q&A", "Sentence"], index=0)
+    model = st.selectbox("Model", [
+        "huggingface/Qwen/Qwen2.5-7B-Instruct",
+        "huggingface/meta-llama/Llama-3.2-3B-Instruct"
+    ], index=0)
+    num_cards = st.slider("Number of cards", 4, 20, 8)
+    style = st.selectbox("Style", ["Mixed", "Vocabulary", "Cloze", "Q&A", "Sentence"], index=0)
 
-# Main input
-text = st.text_area(
-    "Paste your text here",
-    height=250,
-    placeholder="Paste any text, paragraph, article, lecture notes, or even just a topic..."
-)
+text = st.text_area("Paste your text here", height=200, placeholder="Paste paragraph, notes, or topic...")
 
 if st.button("🚀 Generate Flashcards", type="primary", use_container_width=True):
     if not text.strip():
-        st.warning("Please paste some text first!")
+        st.warning("Please enter some text!")
         st.stop()
 
-    with st.spinner("Generating flashcards... This can take 15–40 seconds"):
+    with st.spinner("Generating flashcards..."):
         try:
-            prompt = f"""Create exactly {num_cards} high-quality flashcards based on the following text.
+            prompt = f"""Create exactly {num_cards} flashcards from the text below.
 
 Style: {style}
 
-Return **only** a valid JSON array. No extra text, no explanation, no markdown.
+Return ONLY a valid JSON array like this:
+[
+  {{"front": "Question or prompt", "back": "Answer or explanation", "type": "Vocabulary"}}
+]
 
-Each flashcard must be a JSON object with these exact keys:
-- "front": the question or prompt (clear and concise)
-- "back": the answer or explanation
-- "type": one of "Vocabulary", "Cloze", "Q&A", "Sentence", "Definition"
-
-Text to create flashcards from:
+Text:
 {text}"""
 
             response = completion(
@@ -69,41 +57,63 @@ Text to create flashcards from:
             )
 
             content = response.choices[0].message.content.strip()
-
-            # Extract JSON array
-            match = re.search(r'\[.*\]', content, re.DOTALL | re.IGNORECASE)
+            match = re.search(r'\[.*\]', content, re.DOTALL)
             json_text = match.group(0) if match else content
 
             flashcards = json.loads(json_text)
-
-            # Save to session state
             st.session_state.flashcards = flashcards
-
-            st.success(f"✅ Successfully created {len(flashcards)} flashcards!")
+            st.session_state.current_index = 0
+            st.success(f"✅ {len(flashcards)} flashcards created!")
 
         except Exception as e:
-            st.error(f"Generation failed: {str(e)}")
-            st.info("Tip: Try shorter text or switch to the other model.")
+            st.error(f"Error: {str(e)}")
 
-# Show flashcards if generated
-if "flashcards" in st.session_state:
-    df = pd.DataFrame(st.session_state.flashcards)
+# ====================== INTERACTIVE FLASHCARD VIEWER ======================
+if "flashcards" in st.session_state and st.session_state.flashcards:
+    flashcards = st.session_state.flashcards
+    index = st.session_state.get("current_index", 0)
 
-    st.subheader("📇 Generated Flashcards")
-    st.data_editor(df, use_container_width=True, num_rows="dynamic")
+    st.subheader(f"Flashcard {index + 1} of {len(flashcards)}")
 
-    col1, col2 = st.columns(2)
+    # Card display
+    card = flashcards[index]
+    
+    with st.container(border=True):
+        st.markdown(f"### **{card['front']}**")
+        
+        if st.button("🔄 Flip Card", use_container_width=True):
+            if "show_back" not in st.session_state:
+                st.session_state.show_back = False
+            st.session_state.show_back = not st.session_state.show_back
+
+        if st.session_state.get("show_back", False):
+            st.markdown("---")
+            st.markdown(f"**{card['back']}**")
+            st.caption(f"Type: {card.get('type', 'General')}")
+
+    # Navigation
+    col1, col2, col3 = st.columns([1, 2, 1])
     with col1:
-        st.download_button(
-            label="📥 Download as CSV (for Anki/Quizlet)",
-            data=df.to_csv(index=False),
-            file_name="flashcards.csv",
-            mime="text/csv"
-        )
-    with col2:
-        st.download_button(
-            label="📥 Download as JSON",
-            data=json.dumps(st.session_state.flashcards, indent=2),
-            file_name="flashcards.json",
-            mime="application/json"
-        )
+        if st.button("⬅️ Previous", disabled=(index == 0)):
+            st.session_state.current_index -= 1
+            st.session_state.show_back = False
+            st.rerun()
+    with col3:
+        if st.button("Next ➡️", disabled=(index == len(flashcards)-1)):
+            st.session_state.current_index += 1
+            st.session_state.show_back = False
+            st.rerun()
+
+    # Progress bar
+    st.progress((index + 1) / len(flashcards))
+
+    # Download buttons
+    df = pd.DataFrame(flashcards)
+    colA, colB = st.columns(2)
+    with colA:
+        st.download_button("📥 Download CSV", df.to_csv(index=False), "flashcards.csv", mime="text/csv")
+    with colB:
+        st.download_button("📥 Download JSON", json.dumps(flashcards, indent=2), "flashcards.json", mime="application/json")
+
+else:
+    st.info("Generate flashcards to start studying!")
