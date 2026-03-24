@@ -20,7 +20,7 @@ if not HUGGINGFACE_API_KEY:
 # Sidebar
 with st.sidebar:
     st.header("⚙️ Settings")
-    num_cards = st.slider("Number of cards", 4, 20, 8)
+    num_cards = st.slider("Number of cards", 4, 200, 20)
     style = st.selectbox("Style", ["Mixed", "Vocabulary", "Cloze", "Q&A", "Sentence"], index=0)
 
 text = st.text_area("Paste your text here", height=200, placeholder="Paste paragraph, notes, or topic...")
@@ -42,7 +42,6 @@ Text:
 {text}"""
 
             response = completion(
-                model=model,
                 messages=[{"role": "user", "content": prompt}],
                 api_key=HUGGINGFACE_API_KEY,
                 temperature=0.7,
