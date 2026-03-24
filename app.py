@@ -15,41 +15,44 @@ HUGGINGFACE_API_KEY = os.getenv("HUGGINGFACE_API") or os.getenv("HUGGINGFACE_TOK
 
 if not HUGGINGFACE_API_KEY:
     st.error("❌ Hugging Face API key not found!")
+    st.info("Make sure you added HUGGINGFACE_API=your_key in .env or secrets.toml")
     st.stop()
 
-# Sidebar
+# Sidebar - Only Qwen for now
 with st.sidebar:
     st.header("⚙️ Settings")
-    model = st.selectbox("Model", [
-        "huggingface/Qwen/Qwen2.5-7B-Instruct",
-        "huggingface/meta-llama/Llama-3.2-3B-Instruct"
-    ], index=0)
-    num_cards = st.slider("Number of cards", 4, 20, 8)
-    style = st.selectbox("Style", ["Mixed", "Vocabulary", "Cloze", "Q&A", "Sentence"], index=0)
+    
+    st.info("✅ Using **Qwen2.5 7B** (Currently the most reliable model)")
+    
+    num_cards = st.slider("Number of cards", min_value=4, max_value=20, value=8)
+    style = st.selectbox("Flashcard Style", ["Mixed", "Vocabulary", "Cloze", "Q&A", "Sentence"], index=0)
 
-text = st.text_area("Paste your text here", height=200, placeholder="Paste paragraph, notes, or topic...")
+text = st.text_area("Paste your text here", height=220, 
+                    placeholder="Paste any paragraph, notes, article, or topic...")
 
 if st.button("🚀 Generate Flashcards", type="primary", use_container_width=True):
     if not text.strip():
         st.warning("Please enter some text!")
         st.stop()
 
-    with st.spinner("Generating flashcards..."):
+    with st.spinner("Generating flashcards... (this can take 15-40 seconds)"):
         try:
-            prompt = f"""Create exactly {num_cards} flashcards from the text below.
+            prompt = f"""Create exactly {num_cards} high-quality flashcards from the text below.
 
 Style: {style}
 
-Return ONLY a valid JSON array like this:
-[
-  {{"front": "Question or prompt", "back": "Answer or explanation", "type": "Vocabulary"}}
-]
+Return **ONLY** a valid JSON array. No extra text, no explanation.
+
+Each flashcard must have these keys:
+- "front": clear question or prompt
+- "back": the answer or explanation
+- "type": one of "Vocabulary", "Cloze", "Q&A", "Sentence", "Definition"
 
 Text:
 {text}"""
 
             response = completion(
-                model=model,
+                model="huggingface/Qwen/Qwen2.5-7B-Instruct",   # Hard-coded to Qwen only
                 messages=[{"role": "user", "content": prompt}],
                 api_key=HUGGINGFACE_API_KEY,
                 temperature=0.7,
@@ -57,38 +60,42 @@ Text:
             )
 
             content = response.choices[0].message.content.strip()
+            
+            # Extract JSON
             match = re.search(r'\[.*\]', content, re.DOTALL)
             json_text = match.group(0) if match else content
 
             flashcards = json.loads(json_text)
+
             st.session_state.flashcards = flashcards
             st.session_state.current_index = 0
-            st.success(f"✅ {len(flashcards)} flashcards created!")
+            st.session_state.show_back = False
+            
+            st.success(f"✅ {len(flashcards)} flashcards generated!")
+            st.rerun()
 
         except Exception as e:
-            st.error(f"Error: {str(e)}")
+            st.error(f"Generation failed: {str(e)}")
+            st.info("Tip: Try shorter text if it keeps failing.")
 
-# ====================== INTERACTIVE FLASHCARD VIEWER ======================
+# ====================== FLASHCARD VIEWER ======================
 if "flashcards" in st.session_state and st.session_state.flashcards:
     flashcards = st.session_state.flashcards
     index = st.session_state.get("current_index", 0)
 
     st.subheader(f"Flashcard {index + 1} of {len(flashcards)}")
 
-    # Card display
     card = flashcards[index]
-    
+
     with st.container(border=True):
-        st.markdown(f"### **{card['front']}**")
-        
-        if st.button("🔄 Flip Card", use_container_width=True):
-            if "show_back" not in st.session_state:
-                st.session_state.show_back = False
-            st.session_state.show_back = not st.session_state.show_back
+        st.markdown(f"### {card.get('front', '')}")
+
+        if st.button("🔄 Flip Card", use_container_width=True, type="secondary"):
+            st.session_state.show_back = not st.session_state.get("show_back", False)
 
         if st.session_state.get("show_back", False):
             st.markdown("---")
-            st.markdown(f"**{card['back']}**")
+            st.markdown(f"**{card.get('back', '')}**")
             st.caption(f"Type: {card.get('type', 'General')}")
 
     # Navigation
@@ -98,22 +105,22 @@ if "flashcards" in st.session_state and st.session_state.flashcards:
             st.session_state.current_index -= 1
             st.session_state.show_back = False
             st.rerun()
+
     with col3:
         if st.button("Next ➡️", disabled=(index == len(flashcards)-1)):
             st.session_state.current_index += 1
             st.session_state.show_back = False
             st.rerun()
 
-    # Progress bar
     st.progress((index + 1) / len(flashcards))
 
-    # Download buttons
+    # Download
     df = pd.DataFrame(flashcards)
     colA, colB = st.columns(2)
     with colA:
-        st.download_button("📥 Download CSV", df.to_csv(index=False), "flashcards.csv", mime="text/csv")
+        st.download_button("📥 Download CSV", df.to_csv(index=False), "flashcards.csv", "text/csv")
     with colB:
-        st.download_button("📥 Download JSON", json.dumps(flashcards, indent=2), "flashcards.json", mime="application/json")
+        st.download_button("📥 Download JSON", json.dumps(flashcards, indent=2), "flashcards.json", "application/json")
 
 else:
     st.info("Generate flashcards to start studying!")
