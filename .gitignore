@@ -1,0 +1,18 @@
+# Environment variables
+.env
+*.env
+
+# Streamlit secrets
+.streamlit/secrets.toml
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Streamlit cache
+.streamlit/cache/
+
+# OS junk
+.DS_Store
+Thumbs.db
