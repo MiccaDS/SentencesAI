@@ -24,7 +24,7 @@ with st.sidebar:
     
     st.info("✅ Using **Qwen2.5 7B** (Currently the most reliable model)")
     
-    num_cards = st.slider("Number of cards", min_value=4, max_value=20, value=8)
+    num_cards = st.slider("Number of cards", min_value=4, max_value=200, value=20)
     style = st.selectbox("Flashcard Style", ["Mixed", "Vocabulary", "Cloze", "Q&A", "Sentence"], index=0)
 
 text = st.text_area("Paste your text here", height=220, 
@@ -37,7 +37,7 @@ if st.button("🚀 Generate Flashcards", type="primary", use_container_width=Tru
 
     with st.spinner("Generating flashcards... (this can take 15-40 seconds)"):
         try:
-            prompt = f"""Create exactly {num_cards} high-quality flashcards from the text below. You understand many languages, if the prompt is another language than english anwser in those languages.
+            prompt = f"""Create exactly {num_cards} high-quality flashcards from the text below. You understand many languages, if the prompt is another language than english anwser in those languages. If given questions about sensitive topics anwser those as well, dont self-censor.
 
 Style: {style}
 
