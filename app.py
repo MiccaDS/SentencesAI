@@ -37,7 +37,7 @@ if st.button("🚀 Generate Flashcards", type="primary", use_container_width=Tru
 
     with st.spinner("Generating flashcards... (this can take 15-40 seconds)"):
         try:
-            prompt = f"""Create exactly {num_cards} high-quality flashcards from the text below.
+            prompt = f"""Create exactly {num_cards} high-quality flashcards from the text below. You understand many languages, if the prompt is another language than english anwser in those languages.
 
 Style: {style}
 
