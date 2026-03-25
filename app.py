@@ -78,7 +78,7 @@ Text:
             st.error(f"Generation failed: {str(e)}")
             st.info("Tip: Try shorter text if it keeps failing.")
 
-# ====================== FLASHCARD VIEWER ======================
+
 if "flashcards" in st.session_state and st.session_state.flashcards:
     flashcards = st.session_state.flashcards
     index = st.session_state.get("current_index", 0)
